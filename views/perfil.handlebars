@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil de Usuario</title>
+</head>
+<body>
+
+<h1>Perfil de Usuario</h1>
+<h2>Datos del Usuario</h2>
+<p>Correo electrónico: <span id="userEmail">{{ user.email }}</span></p>
+<p>Rol: <span id="userRole">{{ user.role }}</span></p>
+
+<form id="changeRoleForm">
+    <label for="newRole">Nuevo Rol:</label>
+    <select id="newRole" name="newRole">
+        <option value="user">user</option>
+        <option value="premium">Premium</option>
+    </select>
+    <button type="submit">Cambiar Rol</button>
+</form>
+
+<h2>Subir Producto</h2>
+<form id="productForm">
+    <label for="productName">Nombre del Producto:</label>
+    <input type="text" id="productName" name="productName" placeholder="Ingrese el nombre del producto" required><br><br>
+
+    <label for="productDescription">Descripción del Producto:</label>
+    <textarea id="productDescription" name="productDescription" placeholder="Ingrese la descripción del producto" rows="4" required></textarea><br><br>
+
+    <label for="productPrice">Precio del Producto:</label>
+    <input type="number" id="productPrice" name="productPrice" placeholder="Ingrese el precio del producto" step="0.01" required><br><br>
+
+    <label for="productQuantity">Cantidad del Producto:</label>
+    <input type="number" id="productQuantity" name="productQuantity" placeholder="Ingrese la cantidad del producto" required><br><br>
+
+    <button type="submit">Subir Archivos</button>
+</form>
+
+<a href="/realTimeProducts">
+    <button>volver</button>
+</a>
+
+<script>
+    // Obtener el objeto user del servidor
+    const userData = {
+        email: "{{ user.email }}",
+        role: "{{ user.role }}"
+    };
+    console.log('Datos del usuario:', userData);
+
+    // Mostrar los datos del usuario en la página
+    document.getElementById("userEmail").innerText = userData.email;
+    document.getElementById("userRole").innerText = userData.role;
+
+    // Event listener para el formulario de cambio de rol
+    document.getElementById('changeRoleForm').addEventListener('submit', function(event) {
+        event.preventDefault(); // Evitar que el formulario se envíe de forma predeterminada
+
+        const newRole = document.getElementById('newRole').value;
+        console.log('Nuevo Rol:', newRole);
+
+        // Obtener el correo electrónico del usuario desde la página
+        const email = document.getElementById("userEmail").innerText;
+        console.log('Correo electrónico del usuario:', email);
+
+        // Realizar una solicitud PUT utilizando AJAX
+        fetch(`/user/change-role/${email}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ role: newRole }) // Enviar el nuevo rol en el cuerpo de la solicitud
+        })
+        .then(response => {
+            console.log('Respuesta de la solicitud PUT:', response);
+                if (response.ok) {
+        // Si la solicitud se completa con éxito, mostrar un mensaje de éxito
+        console.log('Rol de usuario actualizado correctamente');
+        // Actualizar el rol del usuario en la página sin necesidad de recargar
+        document.getElementById("userRole").innerText = newRole;
+            } else {
+        // Si la solicitud falla, mostrar un mensaje de error
+        console.error('Error al actualizar el rol del usuario');
+    }
+})
+.catch(error => {
+    console.error('Error al actualizar el rol del usuario:', error);
+});
+    });
+
+    // Event listener para el formulario de subida de producto
+document.getElementById('productForm').addEventListener('submit', function(event) {
+    event.preventDefault(); // Evitar que el formulario se envíe de forma predeterminada
+
+    const productName = document.getElementById('productName').value;
+    const productDescription = document.getElementById('productDescription').value;
+    const productPrice = document.getElementById('productPrice').value;
+    const productQuantity = document.getElementById('productQuantity').value;
+
+    console.log('Datos del producto:', {
+        productName,
+        productDescription,
+        productPrice,
+        productQuantity
+    });
+
+    // Realizar una solicitud POST utilizando fetch
+    fetch('/subir-producto', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            productName,
+            productDescription,
+            productPrice,
+            productQuantity
+        })
+    })
+    .then(response => {
+        console.log('Respuesta de la solicitud POST:', response);
+        if (response.ok) {
+            // Si la solicitud se completa con éxito, mostrar un mensaje de éxito
+            console.log('Producto subido correctamente');
+            // Redirigir a la página principal u otra página deseada
+            window.location.href = '/';
+        } else {
+            // Si la solicitud falla, mostrar un mensaje de error
+            console.error('Error al subir el producto');
+        }
+    })
+    .catch(error => {
+        console.error('Error al subir el producto:', error);
+    });
+});
+</script>
+
+</body>
+</html>

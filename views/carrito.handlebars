@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--Conexion con stripe -->
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>Carrito de Compras</h1>
+
+    <ul id="productosCarrito">
+        {{#each user.cart.items}}
+            <li>{{this.productName}} - Cantidad: {{this.quantity}}</li>
+        {{/each}}
+    </ul>
+
+    <a href="/realTimeProducts">
+        <button>Ver Productos en Tiempo Real</button>
+    </a>
+    <a href="./carrito">
+        <button>Ver carrito</button>
+    </a>
+    <a href="/">
+        <button>Volver a la lista estática</button>
+    </a>
+    <a href="/logout">
+        <button>Cerrar sesión</button>
+    </a>
+    <a href="/perfil">
+        <button>Ir al perfil</button>
+    </a>
+    
+    <button onclick="createCart()">Crear Carrito</button>
+
+    <h1>Proceder con la compra</h1>
+
+        <label for="card-element">
+            Introduce tu información de tarjeta de crédito
+        </label>
+        <div id="card-element">
+            <!-- Elemento de tarjeta de crédito de Stripe -->
+        </div>
+
+        <!-- Utilizado para mostrar errores -->
+        <div id="card-errors" role="alert"></div>
+
+        <!-- Realizar el pago -->
+        <button id="submit">Pagar ahora</button>
+
+
+
+     <script>
+var stripe; // Declara stripe en el ámbito global
+var handlePayment; // Declara handlePayment en el ámbito global
+
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("Stripe se está inicializando...");
+    stripe = Stripe("pk_test_51OxHuAP8j3fUQoA7UllwwUP3P5qLQFVj9NaNrcbWGjQcweqxE8A3XVXwg96MvHdvdHCQx4VnPOxCQAZACjd8MDfv0032TO7Q1s");
+    console.log("Stripe se ha inicializado correctamente:", stripe);
+
+    var elements = stripe.elements();
+
+    // Estilo personalizado para el elemento de tarjeta de crédito
+    var style = {
+        base: {
+            fontSize: '16px',
+            color: '#32325d',
+            fontFamily:
+                '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji',
+            '::placeholder': {
+                color: '#aab7c4',
+            },
+        },
+    };
+
+    // Crear un elemento de tarjeta de crédito
+    var card = elements.create('card', { style: style });
+    card.mount('#card-element');
+
+    // Manejar cambios en el elemento de tarjeta para mostrar errores
+    card.addEventListener('change', function (event) {
+        var displayError = document.getElementById('card-errors');
+        if (event.error) {
+            displayError.textContent = event.error.message;
+        } else {
+            displayError.textContent = '';
+        }
+    });
+
+    function handlePayment(e) {
+        // Evitar que el formulario se envíe y la página se recargue
+        e.preventDefault();
+
+        // Lógica para manejar el pago
+        stripe.createToken(card).then(function (result) {
+            if (result.error) {
+                // Mostrar un error si ocurre algún problema
+                var errorElement = document.getElementById('card-errors');
+                errorElement.textContent = result.error.message;
+            } else {
+                // Enviar el token de pago al servidor
+                console.log('Token de pago creado:', result.token);
+                stripeTokenHandler(result.token);
+            }
+        });
+    }
+
+    // Agregar evento click al botón después de definir handlePayment
+    var submitButton = document.getElementById('submit');
+    submitButton.addEventListener('click', handlePayment);
+
+    // Enviar el token de pago al servidor
+function stripeTokenHandler(token) {
+    // Enviar el token al servidor utilizando Fetch API
+    fetch('/procesar-pago', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: token.id }), // Envía solo el ID del token
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error al procesar el pago en el servidor');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Manejar la respuesta del servidor
+        if (data.success) {
+            // Pago exitoso
+            alert('Pago exitoso');
+        } else {
+            // Error en el pago
+            alert('Error al procesar el pago. Por favor, inténtalo de nuevo.');
+        }
+    })
+    .catch(error => {
+        console.error('Error al procesar el pago:', error);
+        alert('Se produjo un error al procesar el pago. Por favor, inténtalo de nuevo más tarde.');
+    });
+}
+
+// Todo el código relacionado con el carrito de compras y fetch 
+const cartId = '{{cartId}}';
+    const ul = document.getElementById('productosCarrito');
+    const popup = document.getElementById('popup');
+
+    if (!ul) {
+        console.error('Elemento HTML "productosCarrito" no encontrado.');
+        return;
+    }
+
+    fetch(`/api/carts/${cartId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error en la respuesta: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(cart => {
+            console.log('Respuesta del servidor:', cart);
+
+            ul.innerHTML = ''; 
+
+            if (cart && cart.length > 0) {
+                cart.forEach(producto => {
+                    const li = document.createElement('li');
+                    li.textContent = `${producto.product} - Cantidad: ${producto.quantity}`;
+
+                    const button = document.createElement('button');
+                    button.textContent = 'Eliminar';
+
+                    button.addEventListener('click', () => {
+                        fetch(`/api/carts/${cartId}/products/${producto.product}`, {
+                            method: 'DELETE',
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`Error en la respuesta: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(() => {
+                            // Eliminar el elemento de la lista en el cliente
+                            ul.removeChild(li);
+                            console.log('Producto eliminado correctamente');
+                        })
+                        .catch(error => console.error('Error al eliminar el producto del carrito:', error));
+                    });
+
+                    li.appendChild(button);
+                    ul.appendChild(li);
+                });
+            } else {
+                const p = document.createElement('p');
+                p.textContent = 'El carrito está vacío';
+                ul.appendChild(p);
+            }
+        })
+        .catch(error => console.error('Error al obtener productos del carrito:', error));
+});
+
+
+        function createCart() {
+            const accessToken = "user";
+            fetch('http://localhost:8080/api/carts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error al crear el carrito');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Carrito creado:', data);
+                alert('Carrito creado!');
+            })
+            .catch(error => {
+                console.error('Error al crear el carrito:', error);
+                alert('Error al crear el carrito');
+            });
+        }
+
+
+    </script>
+</body>
+</html>
+
